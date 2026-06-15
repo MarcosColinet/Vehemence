@@ -348,14 +348,13 @@
         <h3>Por qué comprar en Vehemence</h3>
         <p>Una tienda diseñada para que compres con más seguridad y confianza que en plataformas donde las regulaciones no siempre protegen al comprador. Acá vas a encontrar productos de calidad, apoyo real y una experiencia más clara y transparente.</p>
         <div class="badges">
-
-          <span class="badge">Envíos a todo Uruguay</span>
-          <span class="badge">Pago seguro</span>
+          <span class="badge">Variedad de productos</span>
+          <span class="badge">Compras más seguras</span>
         </div>
         <div class="stats">
           <div class="stat"><strong>24/7</strong><span>Atención</span></div>
-          <div class="stat"><strong>98%</strong><span>Disponibilidad</span></div>
-          <div class="stat"><strong>Urgente</strong><span>Entrega rápida</span></div>
+          <div class="stat"><strong>Rápido</strong><span>Respuesta</span></div>
+          <div class="stat"><strong>Velocidad</strong><span>Entregas rápidas</span></div>
         </div>
       </div>
     </section>
@@ -383,10 +382,6 @@
         <h2>Beneficios de comprar en Vehemence</h2>
       </div>
       <div class="benefits">
-        <article class="benefit">
-          <h3>Pago con eBrou</h3>
-          <p>Podés aprovechar distintas formas de pago y coordinar tu compra con comodidad.</p>
-        </article>
         <article class="benefit">
           <h3>Envío gratis</h3>
           <p>Todos los servicios incluyen envío gratis en todo Uruguay.</p>
@@ -464,7 +459,15 @@
       const normalizedSearch = activeSearch.trim().toLowerCase();
       const filteredProducts = catalogProducts.filter((product) => {
         const matchesCategory = activeCategory === 'Todos' || product.category === activeCategory;
-        const matchesSearch = !normalizedSearch || [product.name, product.description, product.category].join(' ').toLowerCase().includes(normalizedSearch);
+        const searchableText = [product.name, product.description, product.category, product.name.toLowerCase().replace(/[^a-z0-9]/g, ''), product.name.toLowerCase().split(' ').join('')]
+          .join(' ')
+          .toLowerCase();
+        const searchTerms = normalizedSearch
+          .split(/\s+/)
+          .filter(Boolean)
+          .map(term => term.replace(/[^a-z0-9]/g, ''))
+          .filter(Boolean);
+        const matchesSearch = !normalizedSearch || searchTerms.every(term => searchableText.includes(term));
         return matchesCategory && matchesSearch;
       });
       const visibleProducts = showAllProducts ? filteredProducts : filteredProducts.slice(0, 4);
