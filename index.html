@@ -458,45 +458,95 @@
     let activeCategory = 'Todos';
     let activeSearch = '';
 
-    function renderProducts() {
-      const normalizedSearch = activeSearch.trim().toLowerCase();
-      const filteredProducts = catalogProducts.filter((product) => {
-        const matchesCategory = activeCategory === 'Todos' || product.category === activeCategory;
-        if (!normalizedSearch) return matchesCategory;
+    function normalizeForSearch(value) {
+      return String(value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
 
-        const productText = [
-          product.name,
-          product.description,
-          product.category,
-          product.name.toLowerCase().replace(/[^a-z0-9]/g, ''),
-          product.name.toLowerCase().split(' ').join('')
-        ].join(' ').toLowerCase();
+    function levenshteinDistance(a, b) {
+      const matrix = Array.from({ length: b.length + 1 }, () => Array(a.length + 1).fill(0));
+      for (let i = 0; i <= a.length; i += 1) matrix[0][i] = i;
+      for (let j = 0; j <= b.length; j += 1) matrix[j][0] = j;
 
-        const searchTerms = normalizedSearch
-          .split(/\s+/)
-          .filter(Boolean)
-          .map(term => term.replace(/[^a-z0-9]/g, ''))
-          .filter(Boolean);
+      for (let j = 1; j <= b.length; j += 1) {
+        for (let i = 1; i <= a.length; i += 1) {
+          const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+          matrix[j][i] = Math.min(
+            matrix[j - 1][i] + 1,
+            matrix[j][i - 1] + 1,
+            matrix[j - 1][i - 1] + cost
+          );
+        }
+      }
 
-        const normalizedProductText = productText.replace(/[^a-z0-9]/g, '');
-        const isExactOrPartialMatch = searchTerms.every(term => normalizedProductText.includes(term));
+      return matrix[b.length][a.length];
+    }
 
-        const similarityScore = searchTerms.reduce((score, term) => {
-          if (normalizedProductText.includes(term)) return score + 3;
-          const productWords = productText.split(/\s+/).filter(Boolean);
-          const wordMatch = productWords.some(word => word.includes(term) || term.includes(word));
-          return score + (wordMatch ? 2 : 0);
-        }, 0);
+    function getSearchVariants(term) {
+      const normalized = normalizeForSearch(term);
+      if (!normalized) return [];
 
-        const hasStemMatch = searchTerms.some(term => {
-          const prefix = term.slice(0, 3);
-          const productWords = productText.split(/\s+/).filter(Boolean);
-          return productWords.some(word => word.startsWith(prefix) || prefix.startsWith(word.slice(0, 3)));
+      const variants = new Set([normalized]);
+      const withoutPlural = normalized.endsWith('s') ? normalized.slice(0, -1) : normalized;
+      if (withoutPlural !== normalized) variants.add(withoutPlural);
+
+      if (normalized.length > 3) {
+        variants.add(normalized.slice(0, 3));
+        variants.add(normalized.slice(0, 4));
+        variants.add(normalized.slice(0, 5));
+      }
+
+      const aliasGroups = [
+        ['audifono', 'audifonos', 'auricular', 'auriculares', 'auri', 'auris', 'headphone', 'headphones', 'earphone', 'earphones', 'earbuds']
+      ];
+
+      aliasGroups.forEach((group) => {
+        const intersects = group.some((item) => item === normalized || normalized.includes(item) || item.includes(normalized));
+        if (intersects) {
+          group.forEach((item) => variants.add(item));
+        }
+      });
+
+      return Array.from(variants);
+    }
+
+    function searchMatchesProduct(product, normalizedSearch) {
+      const matchesCategory = activeCategory === 'Todos' || product.category === activeCategory;
+      if (!normalizedSearch || !matchesCategory) {
+        return matchesCategory;
+      }
+
+      const searchTerms = normalizedSearch
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((term) => normalizeForSearch(term))
+        .filter(Boolean);
+
+      const productText = normalizeForSearch([product.name, product.description, product.category].join(' '));
+      const productWords = productText.split(/\s+/).filter(Boolean);
+
+      return searchTerms.every((term) => {
+        const variants = getSearchVariants(term);
+        const variantMatch = variants.some((variant) => productText.includes(variant));
+        const prefixMatch = productWords.some((word) => word.startsWith(term) || term.startsWith(word));
+        const fuzzyMatch = productWords.some((word) => {
+          const distance = levenshteinDistance(word, term);
+          const maxLength = Math.max(word.length, term.length);
+          return maxLength > 0 && distance <= Math.max(1, Math.floor(maxLength * 0.35));
         });
 
-        const matchesSearch = isExactOrPartialMatch || similarityScore >= 2 || hasStemMatch;
-        return matchesCategory && matchesSearch;
+        return variantMatch || prefixMatch || fuzzyMatch;
       });
+    }
+
+    function renderProducts() {
+      const normalizedSearch = normalizeForSearch(activeSearch);
+      const filteredProducts = catalogProducts.filter((product) => searchMatchesProduct(product, normalizedSearch));
       const visibleProducts = showAllProducts ? filteredProducts : filteredProducts.slice(0, 4);
       productsGrid.innerHTML = visibleProducts.map(product => `
         <article class="product">
