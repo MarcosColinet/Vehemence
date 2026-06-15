@@ -100,6 +100,30 @@
       margin-top: 6px;
     }
 
+    .account-panel .auth-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 10px 0 8px;
+    }
+
+    .account-panel .auth-toggle .btn {
+      margin-top: 0;
+      padding: 8px 10px;
+      font-size: 0.9rem;
+    }
+
+    .account-panel .auth-toggle .btn.active {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #1b1305;
+    }
+
+    .account-panel .auth-help {
+      color: var(--muted);
+      font-size: 0.84rem;
+      margin-bottom: 8px;
+    }
+
     nav { display: flex; gap: 18px; flex-wrap: wrap; }
     nav a { color: var(--muted); transition: color 0.2s ease; }
     nav a:hover { color: var(--accent); }
@@ -362,10 +386,19 @@
       <div id="account-pill" class="account-pill">
         <span id="account-pill-label">Sin sesión</span>
         <div id="account-panel" class="account-panel" aria-live="polite">
-          <h4>Tu cuenta</h4>
-          <p>Ingresá si ya tenés cuenta o registrate para crear una nueva.</p>
-          <button type="button" class="btn btn-primary" id="open-login-panel">Ingresar</button>
-          <button type="button" class="btn btn-secondary" id="open-register-panel">Registrarme</button>
+          <h4 id="account-panel-title">Tu cuenta</h4>
+          <p id="account-panel-copy">Elegí si querés iniciar sesión o registrarte.</p>
+          <div class="auth-toggle">
+            <button type="button" class="btn btn-primary auth-toggle-btn active" data-mode="login" id="open-login-panel">Ingresar</button>
+            <button type="button" class="btn btn-secondary auth-toggle-btn" data-mode="register" id="open-register-panel">Registrarme</button>
+          </div>
+          <p class="auth-help">Usá tu correo y tu nombre para entrar o crear tu cuenta.</p>
+          <form id="account-auth-form" class="loyalty-form">
+            <input type="text" id="account-auth-name" placeholder="Tu nombre" required />
+            <input type="email" id="account-auth-email" placeholder="Tu Gmail" required />
+            <button type="submit" class="btn btn-primary" id="account-auth-submit">Iniciar sesión</button>
+          </form>
+          <p id="account-auth-feedback" class="loyalty-feedback" aria-live="polite"></p>
         </div>
       </div>
       <nav>
@@ -529,6 +562,7 @@
     const accountPill = document.getElementById('account-pill');
     const accountPanel = document.getElementById('account-panel');
     const accountPillLabel = document.getElementById('account-pill-label');
+    let accountAuthMode = 'login';
 
     const catalogProducts = [
       { name: 'Audífonos inalámbricos', description: 'Alta calidad y excelente precio para clientes exigentes.', price: 3990, emoji: '📱', category: 'Electrónica' },
@@ -669,11 +703,56 @@
       feedback.className = `loyalty-feedback ${type}`;
     }
 
+    function setAccountFeedback(message, type = 'info') {
+      const feedback = document.getElementById('account-auth-feedback');
+      if (!feedback) return;
+      feedback.textContent = message;
+      feedback.className = `loyalty-feedback ${type}`;
+    }
+
     function clearFeedback() {
       const feedback = document.getElementById('loyalty-feedback');
       if (feedback) {
         feedback.textContent = '';
         feedback.className = 'loyalty-feedback';
+      }
+    }
+
+    function clearAccountFeedback() {
+      const feedback = document.getElementById('account-auth-feedback');
+      if (feedback) {
+        feedback.textContent = '';
+        feedback.className = 'loyalty-feedback';
+      }
+    }
+
+    function setAccountAuthMode(mode) {
+      accountAuthMode = mode;
+      const title = document.getElementById('account-panel-title');
+      const copy = document.getElementById('account-panel-copy');
+      const submit = document.getElementById('account-auth-submit');
+      const nameInput = document.getElementById('account-auth-name');
+      const toggleButtons = document.querySelectorAll('.auth-toggle-btn');
+
+      toggleButtons.forEach((button) => {
+        button.classList.toggle('active', button.dataset.mode === mode);
+        button.classList.toggle('btn-primary', button.dataset.mode === mode);
+        button.classList.toggle('btn-secondary', button.dataset.mode !== mode);
+      });
+
+      if (title) {
+        title.textContent = mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta';
+      }
+      if (copy) {
+        copy.textContent = mode === 'login'
+          ? 'Ingresá con tu correo y nombre registrado.'
+          : 'Creá una cuenta nueva con tu correo y tu nombre.';
+      }
+      if (submit) {
+        submit.textContent = mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta';
+      }
+      if (nameInput) {
+        nameInput.placeholder = mode === 'login' ? 'Tu nombre registrado' : 'Tu nombre';
       }
     }
 
@@ -728,43 +807,57 @@
       return true;
     }
 
-    async function verifyEmailAndContinue(name, email) {
+    async function verifyEmailAndContinue(name, email, requestedMode = null) {
       const normalizedEmail = (email || '').trim().toLowerCase();
       if (!normalizedEmail || !name) {
         setFeedback('Completá tu nombre y un Gmail para continuar.', 'error');
+        setAccountFeedback('Completá tu nombre y un Gmail para continuar.', 'error');
         return;
       }
 
       if (!isValidGmail(normalizedEmail)) {
         setFeedback('Ese correo no existe. Debes usar un Gmail real válido.', 'error');
+        setAccountFeedback('Ese correo no existe. Debes usar un Gmail real válido.', 'error');
         return;
       }
 
       const users = getUsers();
       const existingUser = users[normalizedEmail];
+      const resolvedMode = requestedMode || (existingUser ? 'login' : 'register');
 
-      if (!existingUser) {
-        setFeedback('Ese correo no existe o no está registrado. Solo se pueden usar correos ya existentes.', 'error');
-        return;
-      }
+      if (resolvedMode === 'login') {
+        if (!existingUser) {
+          setFeedback('No existe una cuenta con ese correo. Registrate primero.', 'error');
+          setAccountFeedback('No existe una cuenta con ese correo. Registrate primero.', 'error');
+          return;
+        }
 
-      if (existingUser.name && existingUser.name.toLowerCase() !== name.toLowerCase()) {
-        setFeedback('El correo ingresado no coincide con el nombre registrado. Intentalo nuevamente.', 'error');
+        if (existingUser.name && existingUser.name.toLowerCase() !== name.toLowerCase()) {
+          setFeedback('El correo no coincide con el nombre registrado. Intentá nuevamente.', 'error');
+          setAccountFeedback('El correo no coincide con el nombre registrado. Intentá nuevamente.', 'error');
+          return;
+        }
+      } else if (existingUser) {
+        setFeedback('Ese correo ya está registrado. Iniciá sesión con tu cuenta.', 'error');
+        setAccountFeedback('Ese correo ya está registrado. Iniciá sesión con tu cuenta.', 'error');
         return;
       }
 
       const code = generateVerificationCode();
       setFeedback('Enviando el código a tu Gmail...', 'success');
+      setAccountFeedback('Enviando el código a tu Gmail...', 'success');
 
       try {
         await sendVerificationEmail(normalizedEmail, code, name);
-        pendingVerification = { email: normalizedEmail, name, code };
+        pendingVerification = { email: normalizedEmail, name, code, mode: resolvedMode };
         showVerificationPanel(`Ingresá el código de 6 dígitos que te enviamos a ${normalizedEmail}.`);
         setFeedback('Se envió el código de verificación a tu Gmail. Revisá tu bandeja de entrada.', 'success');
+        setAccountFeedback('Se envió el código de verificación a tu Gmail. Revisá tu bandeja de entrada.', 'success');
       } catch (error) {
-        pendingVerification = { email: normalizedEmail, name, code };
+        pendingVerification = { email: normalizedEmail, name, code, mode: resolvedMode };
         showVerificationPanel(`Ingresá el código de 6 dígitos que te enviamos a ${normalizedEmail}.`);
         setFeedback('El código fue preparado, pero no se pudo completar el envío automático. Intentá nuevamente.', 'error');
+        setAccountFeedback('El código fue preparado, pero no se pudo completar el envío automático. Intentá nuevamente.', 'error');
       }
     }
 
@@ -865,6 +958,9 @@
     accountPill?.addEventListener('click', (event) => {
       event.stopPropagation();
       accountPanel?.classList.toggle('visible');
+      if (accountPanel?.classList.contains('visible')) {
+        document.getElementById('account-auth-email')?.focus();
+      }
     });
 
     document.addEventListener('click', () => {
@@ -873,16 +969,31 @@
 
     document.getElementById('open-login-panel')?.addEventListener('click', (event) => {
       event.stopPropagation();
-      accountPanel?.classList.remove('visible');
-      document.getElementById('loyalty-name')?.focus();
-      setFeedback('Ingresá con tu correo y nombre registrado.', 'success');
+      setAccountAuthMode('login');
+      accountPanel?.classList.add('visible');
+      document.getElementById('account-auth-email')?.focus();
+      setAccountFeedback('Ingresá con tu correo y nombre registrado.', 'success');
     });
 
     document.getElementById('open-register-panel')?.addEventListener('click', (event) => {
       event.stopPropagation();
-      accountPanel?.classList.remove('visible');
-      document.getElementById('loyalty-name')?.focus();
-      setFeedback('Registrate con tu correo y nombre para crear tu cuenta.', 'success');
+      setAccountAuthMode('register');
+      accountPanel?.classList.add('visible');
+      document.getElementById('account-auth-email')?.focus();
+      setAccountFeedback('Creá tu cuenta con tu correo y tu nombre.', 'success');
+    });
+
+    document.querySelectorAll('.auth-toggle-btn').forEach((button) => {
+      button.addEventListener('click', () => {
+        setAccountAuthMode(button.dataset.mode || 'login');
+      });
+    });
+
+    document.getElementById('account-auth-form')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const name = document.getElementById('account-auth-name').value.trim();
+      const email = document.getElementById('account-auth-email').value.trim();
+      await verifyEmailAndContinue(name, email, accountAuthMode);
     });
 
     document.getElementById('verify-code-btn')?.addEventListener('click', () => {
@@ -897,25 +1008,36 @@
       const users = getUsers();
       const existingUser = users[pendingVerification.email] || null;
 
-      if (!existingUser) {
-        setFeedback('Ese correo no existe. No se puede usar un correo que no esté registrado.', 'error');
+      if (pendingVerification.mode === 'login') {
+        if (!existingUser) {
+          setFeedback('Ese correo no existe. No se puede usar un correo que no esté registrado.', 'error');
+          setAccountFeedback('Ese correo no existe. No se puede usar un correo que no esté registrado.', 'error');
+          return;
+        }
+      } else if (existingUser) {
+        setFeedback('Ese correo ya está registrado. Iniciá sesión con tu cuenta.', 'error');
+        setAccountFeedback('Ese correo ya está registrado. Iniciá sesión con tu cuenta.', 'error');
         return;
       }
 
       const user = {
         name: pendingVerification.name,
         email: pendingVerification.email,
-        points: existingUser.points || 0,
-        history: existingUser.history || []
+        points: existingUser?.points || 0,
+        history: existingUser?.history || []
       };
 
       saveUser(user);
       hideVerificationPanel();
       clearFeedback();
+      clearAccountFeedback();
       document.getElementById('loyalty-form')?.reset();
+      document.getElementById('account-auth-form')?.reset();
       renderLoyalty();
-      setFeedback('Accediste correctamente a tu cuenta.', 'success');
+      setFeedback(pendingVerification.mode === 'register' ? 'Tu cuenta quedó creada correctamente.' : 'Accediste correctamente a tu cuenta.', 'success');
+      setAccountFeedback(pendingVerification.mode === 'register' ? 'Tu cuenta quedó creada correctamente.' : 'Accediste correctamente a tu cuenta.', 'success');
       pendingVerification = null;
+      accountPanel?.classList.remove('visible');
     });
 
     document.getElementById('cancel-verification-btn')?.addEventListener('click', () => {
