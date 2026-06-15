@@ -59,9 +59,46 @@
       color: var(--muted);
       font-size: 0.92rem;
       white-space: nowrap;
+      cursor: pointer;
+      position: relative;
     }
 
     .account-pill strong { color: var(--accent); }
+
+    .account-panel {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      min-width: 260px;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(10, 10, 10, 0.98);
+      border: 1px solid var(--border);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+      display: none;
+      z-index: 20;
+    }
+
+    .account-panel.visible {
+      display: block;
+    }
+
+    .account-panel h4 {
+      color: var(--accent);
+      margin-bottom: 8px;
+      font-size: 0.98rem;
+    }
+
+    .account-panel p {
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin-bottom: 10px;
+    }
+
+    .account-panel .btn {
+      width: 100%;
+      margin-top: 6px;
+    }
 
     nav { display: flex; gap: 18px; flex-wrap: wrap; }
     nav a { color: var(--muted); transition: color 0.2s ease; }
@@ -322,7 +359,15 @@
   <header>
     <div class="container topbar">
       <a class="brand" href="#">Vehemence</a>
-      <div id="account-pill" class="account-pill">Sin sesión</div>
+      <div id="account-pill" class="account-pill">
+        <span id="account-pill-label">Sin sesión</span>
+        <div id="account-panel" class="account-panel" aria-live="polite">
+          <h4>Tu cuenta</h4>
+          <p>Ingresá si ya tenés cuenta o registrate para crear una nueva.</p>
+          <button type="button" class="btn btn-primary" id="open-login-panel">Ingresar</button>
+          <button type="button" class="btn btn-secondary" id="open-register-panel">Registrarme</button>
+        </div>
+      </div>
       <nav>
         <a href="#catalogo">Catálogo</a>
         <a href="#beneficios">Beneficios</a>
@@ -481,6 +526,9 @@
     const moderatorSection = document.getElementById('moderador');
     const catalogToggle = document.getElementById('toggle-catalog');
     const productsGrid = document.getElementById('products-grid');
+    const accountPill = document.getElementById('account-pill');
+    const accountPanel = document.getElementById('account-panel');
+    const accountPillLabel = document.getElementById('account-pill-label');
 
     const catalogProducts = [
       { name: 'Audífonos inalámbricos', description: 'Alta calidad y excelente precio para clientes exigentes.', price: 3990, emoji: '📱', category: 'Electrónica' },
@@ -721,12 +769,11 @@
     }
 
     function updateAccountPill(user) {
-      const accountPill = document.getElementById('account-pill');
-      if (!accountPill) return;
+      if (!accountPill || !accountPillLabel) return;
       if (user) {
-        accountPill.innerHTML = `<strong>${user.name}</strong> · ${user.points || 0} pts`;
+        accountPillLabel.innerHTML = `<strong>${user.name}</strong> · ${user.points || 0} pts`;
       } else {
-        accountPill.innerHTML = 'Sin sesión';
+        accountPillLabel.textContent = 'Sin sesión';
       }
     }
 
@@ -813,6 +860,29 @@
       const name = document.getElementById('loyalty-name').value.trim();
       const email = document.getElementById('loyalty-email').value.trim();
       await verifyEmailAndContinue(name, email);
+    });
+
+    accountPill?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      accountPanel?.classList.toggle('visible');
+    });
+
+    document.addEventListener('click', () => {
+      accountPanel?.classList.remove('visible');
+    });
+
+    document.getElementById('open-login-panel')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      accountPanel?.classList.remove('visible');
+      document.getElementById('loyalty-name')?.focus();
+      setFeedback('Ingresá con tu correo y nombre registrado.', 'success');
+    });
+
+    document.getElementById('open-register-panel')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      accountPanel?.classList.remove('visible');
+      document.getElementById('loyalty-name')?.focus();
+      setFeedback('Registrate con tu correo y nombre para crear tu cuenta.', 'success');
     });
 
     document.getElementById('verify-code-btn')?.addEventListener('click', () => {
