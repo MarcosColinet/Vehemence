@@ -124,6 +124,19 @@
       margin-bottom: 8px;
     }
 
+    .auth-section {
+      display: none;
+    }
+
+    .auth-section.visible {
+      display: block;
+    }
+
+    .auth-section .btn {
+      width: 100%;
+      margin-top: 6px;
+    }
+
     nav { display: flex; gap: 18px; flex-wrap: wrap; }
     nav a { color: var(--muted); transition: color 0.2s ease; }
     nav a:hover { color: var(--accent); }
@@ -399,13 +412,38 @@
           <div class="auth-toggle">
             <button type="button" class="btn btn-primary auth-toggle-btn active" data-mode="login" id="open-login-panel">Ingresar</button>
             <button type="button" class="btn btn-secondary auth-toggle-btn" data-mode="register" id="open-register-panel">Registrarme</button>
+            <button type="button" class="btn btn-secondary auth-toggle-btn" data-mode="recover" id="open-recover-panel">Olvidé mi contraseña</button>
           </div>
-          <p class="auth-help">Usá tu correo y tu nombre para entrar o crear tu cuenta.</p>
-          <form id="account-auth-form" class="loyalty-form">
-            <input type="text" id="account-auth-name" placeholder="Tu nombre" required />
-            <input type="email" id="account-auth-email" placeholder="Tu Gmail" required />
-            <button type="submit" class="btn btn-primary" id="account-auth-submit">Iniciar sesión</button>
-          </form>
+          <p class="auth-help">Usá tu correo, nombre y contraseña para entrar o recuperar tu cuenta.</p>
+          <div id="auth-login-section" class="auth-section visible">
+            <form id="account-login-form" class="loyalty-form">
+              <input type="email" id="account-login-email" placeholder="Tu Gmail" required />
+              <input type="text" id="account-login-name" placeholder="Tu nombre registrado" required />
+              <input type="password" id="account-login-password" placeholder="Tu contraseña" required />
+              <button type="submit" class="btn btn-primary">Iniciar sesión</button>
+            </form>
+          </div>
+          <div id="auth-register-section" class="auth-section">
+            <form id="account-register-form" class="loyalty-form">
+              <input type="email" id="account-register-email" placeholder="Tu Gmail" required />
+              <input type="text" id="account-register-name" placeholder="Tu nombre" required />
+              <input type="password" id="account-register-password" placeholder="Crea una contraseña" required />
+              <input type="password" id="account-register-confirm" placeholder="Repetí la contraseña" required />
+              <button type="submit" class="btn btn-primary">Crear cuenta</button>
+            </form>
+          </div>
+          <div id="auth-recover-section" class="auth-section">
+            <form id="account-recover-form" class="loyalty-form">
+              <input type="email" id="account-recover-email" placeholder="Tu Gmail" required />
+              <button type="submit" class="btn btn-primary">Enviar código</button>
+            </form>
+            <div id="account-recover-setup" class="auth-section" style="display: none;">
+              <input type="text" id="account-recover-code" placeholder="Código de 6 dígitos" maxlength="6" inputmode="numeric" />
+              <input type="password" id="account-recover-new-password" placeholder="Nueva contraseña" />
+              <input type="text" id="account-recover-new-name" placeholder="Nuevo nombre" />
+              <button type="button" id="account-recover-submit" class="btn btn-primary">Guardar cambios</button>
+            </div>
+          </div>
           <p id="account-auth-feedback" class="loyalty-feedback" aria-live="polite"></p>
         </div>
       </div>
@@ -740,9 +778,8 @@
       accountAuthMode = mode;
       const title = document.getElementById('account-panel-title');
       const copy = document.getElementById('account-panel-copy');
-      const submit = document.getElementById('account-auth-submit');
-      const nameInput = document.getElementById('account-auth-name');
       const toggleButtons = document.querySelectorAll('.auth-toggle-btn');
+      const sections = document.querySelectorAll('.auth-section');
 
       toggleButtons.forEach((button) => {
         button.classList.toggle('active', button.dataset.mode === mode);
@@ -750,19 +787,24 @@
         button.classList.toggle('btn-secondary', button.dataset.mode !== mode);
       });
 
+      sections.forEach((section) => {
+        section.classList.toggle('visible', section.id === `auth-${mode}-section`);
+      });
+
       if (title) {
-        title.textContent = mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta';
+        title.textContent = mode === 'login' ? 'Iniciar sesión' : mode === 'register' ? 'Crear cuenta' : 'Recuperar acceso';
       }
       if (copy) {
         copy.textContent = mode === 'login'
-          ? 'Ingresá con tu correo y nombre registrado.'
-          : 'Creá una cuenta nueva con tu correo y tu nombre.';
+          ? 'Ingresá con tu correo, nombre y contraseña.'
+          : mode === 'register'
+            ? 'Creá una cuenta nueva con tu correo y tu nombre.'
+            : 'Ingresá tu Gmail para recibir un código y recuperar tu cuenta.';
       }
-      if (submit) {
-        submit.textContent = mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta';
-      }
-      if (nameInput) {
-        nameInput.placeholder = mode === 'login' ? 'Tu nombre registrado' : 'Tu nombre';
+
+      const recoverSetup = document.getElementById('account-recover-setup');
+      if (recoverSetup) {
+        recoverSetup.style.display = 'none';
       }
     }
 
@@ -817,7 +859,7 @@
       return true;
     }
 
-    async function verifyEmailAndContinue(name, email, requestedMode = null) {
+    async function verifyEmailAndContinue(name, email, requestedMode = null, password = '', confirmPassword = '') {
       const normalizedEmail = (email || '').trim().toLowerCase();
       if (!normalizedEmail || !name) {
         setFeedback('Completá tu nombre y un Gmail para continuar.', 'error');
@@ -826,8 +868,8 @@
       }
 
       if (!isValidGmail(normalizedEmail)) {
-        setFeedback('Ese correo no existe. Debes usar un Gmail real válido.', 'error');
-        setAccountFeedback('Ese correo no existe. Debes usar un Gmail real válido.', 'error');
+        setFeedback('Debes usar un Gmail válido que pueda recibir el código.', 'error');
+        setAccountFeedback('Debes usar un Gmail válido que pueda recibir el código.', 'error');
         return;
       }
 
@@ -841,16 +883,33 @@
           setAccountFeedback('No existe una cuenta con ese correo. Registrate primero.', 'error');
           return;
         }
-
         if (existingUser.name && existingUser.name.toLowerCase() !== name.toLowerCase()) {
           setFeedback('El correo no coincide con el nombre registrado. Intentá nuevamente.', 'error');
           setAccountFeedback('El correo no coincide con el nombre registrado. Intentá nuevamente.', 'error');
           return;
         }
-      } else if (existingUser) {
-        setFeedback('Ese correo ya está registrado. Iniciá sesión con tu cuenta.', 'error');
-        setAccountFeedback('Ese correo ya está registrado. Iniciá sesión con tu cuenta.', 'error');
-        return;
+        if (existingUser.password && existingUser.password !== password) {
+          setFeedback('La contraseña es incorrecta.', 'error');
+          setAccountFeedback('La contraseña es incorrecta.', 'error');
+          return;
+        }
+      } else if (resolvedMode === 'register') {
+        if (existingUser) {
+          setFeedback('Ese correo ya está registrado. Iniciá sesión con tu cuenta.', 'error');
+          setAccountFeedback('Ese correo ya está registrado. Iniciá sesión con tu cuenta.', 'error');
+          return;
+        }
+        if (password !== confirmPassword) {
+          setFeedback('Las contraseñas no coinciden.', 'error');
+          setAccountFeedback('Las contraseñas no coinciden.', 'error');
+          return;
+        }
+      } else if (resolvedMode === 'recover') {
+        if (!existingUser) {
+          setFeedback('No existe una cuenta asociada a ese correo.', 'error');
+          setAccountFeedback('No existe una cuenta asociada a ese correo.', 'error');
+          return;
+        }
       }
 
       const code = generateVerificationCode();
@@ -859,12 +918,12 @@
 
       try {
         await sendVerificationEmail(normalizedEmail, code, name);
-        pendingVerification = { email: normalizedEmail, name, code, mode: resolvedMode };
+        pendingVerification = { email: normalizedEmail, name, code, mode: resolvedMode, password, confirmPassword };
         showVerificationPanel(`Ingresá el código de 6 dígitos que te enviamos a ${normalizedEmail}.`);
         setFeedback('Se envió el código de verificación a tu Gmail. Revisá tu bandeja de entrada.', 'success');
         setAccountFeedback('Se envió el código de verificación a tu Gmail. Revisá tu bandeja de entrada.', 'success');
       } catch (error) {
-        pendingVerification = { email: normalizedEmail, name, code, mode: resolvedMode };
+        pendingVerification = { email: normalizedEmail, name, code, mode: resolvedMode, password, confirmPassword };
         showVerificationPanel(`Ingresá el código de 6 dígitos que te enviamos a ${normalizedEmail}.`);
         setFeedback('El código fue preparado, pero no se pudo completar el envío automático. Intentá nuevamente.', 'error');
         setAccountFeedback('El código fue preparado, pero no se pudo completar el envío automático. Intentá nuevamente.', 'error');
@@ -969,6 +1028,63 @@
       await verifyEmailAndContinue(name, email);
     });
 
+    document.getElementById('account-login-form')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const email = document.getElementById('account-login-email').value.trim();
+      const name = document.getElementById('account-login-name').value.trim();
+      const password = document.getElementById('account-login-password').value;
+      await verifyEmailAndContinue(name, email, 'login', password);
+    });
+
+    document.getElementById('account-register-form')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const email = document.getElementById('account-register-email').value.trim();
+      const name = document.getElementById('account-register-name').value.trim();
+      const password = document.getElementById('account-register-password').value;
+      const confirmPassword = document.getElementById('account-register-confirm').value;
+      await verifyEmailAndContinue(name, email, 'register', password, confirmPassword);
+    });
+
+    document.getElementById('account-recover-form')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const email = document.getElementById('account-recover-email').value.trim();
+      await verifyEmailAndContinue(email, email, 'recover');
+    });
+
+    document.getElementById('account-recover-submit')?.addEventListener('click', () => {
+      const code = document.getElementById('account-recover-code').value.trim();
+      const newPassword = document.getElementById('account-recover-new-password').value;
+      const newName = document.getElementById('account-recover-new-name').value.trim();
+      if (!pendingVerification || pendingVerification.mode !== 'recover') {
+        return;
+      }
+      if (code !== pendingVerification.code) {
+        setAccountFeedback('El código ingresado no es correcto.', 'error');
+        return;
+      }
+      const users = getUsers();
+      const existingUser = users[pendingVerification.email];
+      if (!existingUser) {
+        setAccountFeedback('No existe una cuenta asociada a ese correo.', 'error');
+        return;
+      }
+      const updatedUser = {
+        ...existingUser,
+        name: newName || existingUser.name || pendingVerification.name,
+        password: newPassword || existingUser.password || '',
+        email: pendingVerification.email
+      };
+      saveUser(updatedUser);
+      document.getElementById('account-recover-setup').style.display = 'none';
+      document.getElementById('account-recover-form').reset();
+      document.getElementById('account-recover-code').value = '';
+      document.getElementById('account-recover-new-password').value = '';
+      document.getElementById('account-recover-new-name').value = '';
+      setAccountFeedback('Tu contraseña y/o nombre quedaron actualizados.', 'success');
+      pendingVerification = null;
+      accountPanel?.classList.remove('visible');
+    });
+
     document.querySelectorAll('#categories-bar .chip').forEach((chip) => {
       chip.addEventListener('click', () => {
         activeCategory = chip.dataset.category || 'Todos';
@@ -1029,6 +1145,16 @@
 
       if (code !== pendingVerification.code) {
         setFeedback('El código ingresado no es correcto. Intentá nuevamente.', 'error');
+        setAccountFeedback('El código ingresado no es correcto. Intentá nuevamente.', 'error');
+        return;
+      }
+
+      if (pendingVerification.mode === 'recover') {
+        const recoverSetup = document.getElementById('account-recover-setup');
+        if (recoverSetup) {
+          recoverSetup.style.display = 'block';
+        }
+        setAccountFeedback('Ahora elegí tu nueva contraseña y, si querés, tu nombre.', 'success');
         return;
       }
 
@@ -1050,6 +1176,7 @@
       const user = {
         name: pendingVerification.name,
         email: pendingVerification.email,
+        password: pendingVerification.password || '',
         points: existingUser?.points || 0,
         history: existingUser?.history || []
       };
@@ -1059,7 +1186,9 @@
       clearFeedback();
       clearAccountFeedback();
       document.getElementById('loyalty-form')?.reset();
-      document.getElementById('account-auth-form')?.reset();
+      document.getElementById('account-login-form')?.reset();
+      document.getElementById('account-register-form')?.reset();
+      document.getElementById('account-recover-form')?.reset();
       renderLoyalty();
       setFeedback(pendingVerification.mode === 'register' ? 'Tu cuenta quedó creada correctamente.' : 'Accediste correctamente a tu cuenta.', 'success');
       setAccountFeedback(pendingVerification.mode === 'register' ? 'Tu cuenta quedó creada correctamente.' : 'Accediste correctamente a tu cuenta.', 'success');
