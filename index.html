@@ -445,6 +445,7 @@
             <input type="email" id="loyalty-email" placeholder="Tu Gmail" required />
             <button type="submit" class="btn btn-primary">Ingresar</button>
           </form>
+          <p style="margin-top: 10px; color: var(--muted); font-size: 0.92rem;">Solo se aceptan Gmail ya registrados en el programa de fidelidad para entrar.</p>
           <div id="loyalty-verification" class="loyalty-verification">
             <p id="verification-copy">Te enviaremos un código de 6 dígitos para confirmar tu Gmail.</p>
             <div class="verif-code" id="verification-code-display">000000</div>
@@ -484,6 +485,7 @@
     const whatsappNumber = '59891482848';
     const loyaltyKey = 'vehemence-loyalty-user';
     const loyaltyUsersKey = 'vehemence-loyalty-users';
+    const loyaltyVerifiedEmailsKey = 'vehemence-loyalty-verified-emails';
     const developerEmail = 'socramteniloc@gmail.com';
     const moderatorSection = document.getElementById('moderador');
     const catalogToggle = document.getElementById('toggle-catalog');
@@ -533,6 +535,35 @@
       } catch (error) {
         return null;
       }
+    }
+
+    function getVerifiedEmails() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(loyaltyVerifiedEmailsKey) || '[]');
+        const normalized = [...new Set((saved || []).map(email => String(email).trim().toLowerCase()).filter(Boolean))];
+        localStorage.setItem(loyaltyVerifiedEmailsKey, JSON.stringify(normalized));
+        return normalized;
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function saveVerifiedEmails(emails) {
+      const normalized = [...new Set((emails || []).map(email => String(email).trim().toLowerCase()).filter(Boolean))];
+      localStorage.setItem(loyaltyVerifiedEmailsKey, JSON.stringify(normalized));
+      return normalized;
+    }
+
+    function addVerifiedEmail(email) {
+      const normalized = String(email || '').trim().toLowerCase();
+      if (!normalized) return null;
+      const verified = getVerifiedEmails();
+      verified.push(normalized);
+      return saveVerifiedEmails(verified);
+    }
+
+    function isVerifiedEmail(email) {
+      return getVerifiedEmails().includes(String(email || '').trim().toLowerCase());
     }
 
     function saveUser(user) {
@@ -605,20 +636,20 @@
       const users = getUsers();
       const existingUser = users[normalizedEmail];
 
-      if (existingUser && existingUser.name && existingUser.name.toLowerCase() !== name.toLowerCase()) {
+      if (!existingUser) {
+        setFeedback('Ese correo no existe o no está registrado. Solo se pueden usar correos ya existentes.', 'error');
+        return;
+      }
+
+      if (existingUser.name && existingUser.name.toLowerCase() !== name.toLowerCase()) {
         setFeedback(`Ese correo ya está asociado a ${existingUser.name}. Ingresá el nombre correcto para entrar.`, 'error');
         return;
       }
 
       const code = generateVerificationCode();
-      pendingVerification = { email: normalizedEmail, name, code, action: existingUser ? 'login' : 'register' };
-      showVerificationPanel(
-        existingUser
-          ? `Confirmá el acceso para ${normalizedEmail}.`
-          : `Te enviamos un código de 6 dígitos a ${normalizedEmail} para verificar tu Gmail.`,
-        code
-      );
-      setFeedback(existingUser ? 'Se solicitó la verificación para entrar con ese correo.' : 'Verificá tu Gmail con el código que aparece aquí.', 'success');
+      pendingVerification = { email: normalizedEmail, name, code };
+      showVerificationPanel(`Confirmá el acceso para ${normalizedEmail}.`, code);
+      setFeedback('Se solicitó la verificación para entrar con ese correo.', 'success');
     }
 
     function updateAccountPill(user) {
@@ -647,6 +678,7 @@
             <p style="margin-top: 8px; color: var(--muted);">Este panel está pensado para asignar puntos de forma manual tras una venta cerrada por WhatsApp, sin depender de ninguna automatización.</p>
             <form id="moderator-form" class="loyalty-form">
               <input type="email" id="moderator-email" placeholder="Email del cliente" required />
+              <input type="email" id="moderator-verified-email" placeholder="Gmail verificado a agregar" />
               <input type="number" id="moderator-points" placeholder="Cantidad de puntos" min="1" required />
               <button type="submit" class="btn btn-primary">Asignar puntos</button>
             </form>
@@ -725,11 +757,17 @@
 
       const users = getUsers();
       const existingUser = users[pendingVerification.email] || null;
+
+      if (!existingUser) {
+        setFeedback('Ese correo no existe. No se puede usar un correo que no esté registrado.', 'error');
+        return;
+      }
+
       const user = {
         name: pendingVerification.name,
         email: pendingVerification.email,
-        points: existingUser?.points || 0,
-        history: existingUser?.history || []
+        points: existingUser.points || 0,
+        history: existingUser.history || []
       };
 
       saveUser(user);
@@ -737,7 +775,7 @@
       clearFeedback();
       document.getElementById('loyalty-form')?.reset();
       renderLoyalty();
-      setFeedback(existingUser ? 'Accediste correctamente a tu cuenta.' : 'Tu cuenta de fidelidad quedó creada correctamente.', 'success');
+      setFeedback('Accediste correctamente a tu cuenta.', 'success');
       pendingVerification = null;
     });
 
@@ -750,9 +788,14 @@
     document.getElementById('moderator-form')?.addEventListener('submit', (event) => {
       event.preventDefault();
       const email = document.getElementById('moderator-email').value.trim();
+      const verifiedEmail = document.getElementById('moderator-verified-email').value.trim();
       const points = Number(document.getElementById('moderator-points').value);
 
       if (!email || !points || points <= 0) return;
+
+      if (verifiedEmail) {
+        addVerifiedEmail(verifiedEmail);
+      }
 
       const users = getUsers();
       const existingUser = users[email] || { name: email, email, points: 0, history: [] };
