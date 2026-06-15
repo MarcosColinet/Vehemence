@@ -487,6 +487,10 @@
       return matrix[b.length][a.length];
     }
 
+    function distanciaLevenshtein(a, b) {
+      return levenshteinDistance(a, b);
+    }
+
     function getSearchVariants(term) {
       const normalized = normalizeForSearch(term);
       if (!normalized) return [];
@@ -515,6 +519,21 @@
       return Array.from(variants);
     }
 
+    function fuzzyMatchTerm(term, target) {
+      if (!term || !target) return false;
+      const normalizedTerm = normalizeForSearch(term);
+      const normalizedTarget = normalizeForSearch(target);
+      if (normalizedTarget.includes(normalizedTerm) || normalizedTerm.includes(normalizedTarget)) {
+        return true;
+      }
+
+      const distance = distanciaLevenshtein(normalizedTerm, normalizedTarget);
+      const maxLen = Math.max(normalizedTerm.length, normalizedTarget.length);
+      if (maxLen === 0) return false;
+      const threshold = Math.max(1, Math.floor(maxLen * 0.4));
+      return distance <= threshold;
+    }
+
     function searchMatchesProduct(product, normalizedSearch) {
       const matchesCategory = activeCategory === 'Todos' || product.category === activeCategory;
       if (!normalizedSearch || !matchesCategory) {
@@ -533,14 +552,8 @@
       return searchTerms.every((term) => {
         const variants = getSearchVariants(term);
         const variantMatch = variants.some((variant) => productText.includes(variant));
-        const prefixMatch = productWords.some((word) => word.startsWith(term) || term.startsWith(word));
-        const fuzzyMatch = productWords.some((word) => {
-          const distance = levenshteinDistance(word, term);
-          const maxLength = Math.max(word.length, term.length);
-          return maxLength > 0 && distance <= Math.max(1, Math.floor(maxLength * 0.35));
-        });
-
-        return variantMatch || prefixMatch || fuzzyMatch;
+        const wordMatch = productWords.some((word) => fuzzyMatchTerm(term, word));
+        return variantMatch || wordMatch;
       });
     }
 
