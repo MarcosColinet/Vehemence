@@ -272,14 +272,6 @@
       display: block;
     }
 
-    .verif-code {
-      letter-spacing: 0.24em;
-      font-size: 1.3rem;
-      font-weight: 800;
-      color: var(--accent);
-      margin: 8px 0;
-    }
-
     .loyalty-points {
       font-size: 1.8rem;
       color: var(--accent);
@@ -448,7 +440,6 @@
           <p style="margin-top: 10px; color: var(--muted); font-size: 0.92rem;">Solo se aceptan Gmail ya registrados en el programa de fidelidad para entrar.</p>
           <div id="loyalty-verification" class="loyalty-verification">
             <p id="verification-copy">Te enviaremos un código de 6 dígitos para confirmar tu Gmail.</p>
-            <div class="verif-code" id="verification-code-display">000000</div>
             <input type="text" id="verification-code" placeholder="Ingresa el código de 6 dígitos" maxlength="6" inputmode="numeric" />
             <div class="actions" style="margin-top: 8px;">
               <button type="button" id="verify-code-btn" class="btn btn-primary">Confirmar código</button>
@@ -517,21 +508,68 @@
     let showAllProducts = false;
     let pendingVerification = null;
 
+    function normalizeUsersObject(users) {
+      const safeUsers = users && typeof users === 'object' ? users : {};
+      const normalized = {};
+      Object.entries(safeUsers).forEach(([email, user]) => {
+        const normalizedEmail = String(email || '').trim().toLowerCase();
+        if (!normalizedEmail) return;
+        normalized[normalizedEmail] = {
+          ...(user || {}),
+          email: normalizedEmail,
+          name: String(user?.name || '').trim()
+        };
+      });
+      return normalized;
+    }
+
+    function readStorageValue(key) {
+      try {
+        return localStorage.getItem(key);
+      } catch (error) {
+        try {
+          return sessionStorage.getItem(key);
+        } catch (sessionError) {
+          return null;
+        }
+      }
+    }
+
+    function writeStorageValue(key, value) {
+      try {
+        localStorage.setItem(key, value);
+      } catch (error) {
+        try {
+          sessionStorage.setItem(key, value);
+        } catch (sessionError) {
+          window.__vehemenceLoyaltyStorageFallback = window.__vehemenceLoyaltyStorageFallback || {};
+          window.__vehemenceLoyaltyStorageFallback[key] = value;
+        }
+      }
+    }
+
     function getUsers() {
       try {
-        return JSON.parse(localStorage.getItem(loyaltyUsersKey) || '{}');
+        const storedUsers = readStorageValue(loyaltyUsersKey);
+        const parsed = storedUsers ? JSON.parse(storedUsers) : {};
+        return normalizeUsersObject(parsed);
       } catch (error) {
-        return {};
+        return normalizeUsersObject(window.__vehemenceLoyaltyStorageFallback?.[loyaltyUsersKey] ? JSON.parse(window.__vehemenceLoyaltyStorageFallback[loyaltyUsersKey]) : {});
       }
     }
 
     function saveUsers(users) {
-      localStorage.setItem(loyaltyUsersKey, JSON.stringify(users));
+      const normalizedUsers = normalizeUsersObject(users);
+      writeStorageValue(loyaltyUsersKey, JSON.stringify(normalizedUsers));
+      window.__vehemenceLoyaltyUsers = normalizedUsers;
     }
 
     function getUser() {
       try {
-        return JSON.parse(localStorage.getItem(loyaltyKey));
+        const storedUser = readStorageValue(loyaltyKey);
+        if (!storedUser) return null;
+        const parsed = JSON.parse(storedUser);
+        return parsed && typeof parsed === 'object' ? parsed : null;
       } catch (error) {
         return null;
       }
@@ -567,9 +605,9 @@
     }
 
     function saveUser(user) {
-      const normalizedEmail = (user.email || '').toLowerCase();
-      const normalizedUser = { ...user, email: normalizedEmail };
-      localStorage.setItem(loyaltyKey, JSON.stringify(normalizedUser));
+      const normalizedEmail = String(user.email || '').trim().toLowerCase();
+      const normalizedUser = { ...user, email: normalizedEmail, name: String(user.name || '').trim() };
+      writeStorageValue(loyaltyKey, JSON.stringify(normalizedUser));
       const users = getUsers();
       users[normalizedEmail] = normalizedUser;
       saveUsers(users);
@@ -591,13 +629,11 @@
       }
     }
 
-    function showVerificationPanel(message, code) {
+    function showVerificationPanel(message) {
       const panel = document.getElementById('loyalty-verification');
       const copy = document.getElementById('verification-copy');
-      const display = document.getElementById('verification-code-display');
-      if (!panel || !copy || !display) return;
+      if (!panel || !copy) return;
       copy.textContent = message;
-      display.textContent = code;
       panel.classList.add('visible');
       document.getElementById('verification-code')?.focus();
     }
@@ -665,7 +701,7 @@
       }
 
       if (existingUser.name && existingUser.name.toLowerCase() !== name.toLowerCase()) {
-        setFeedback(`Ese correo ya está asociado a ${existingUser.name}. Ingresá el nombre correcto para entrar.`, 'error');
+        setFeedback('El correo ingresado no coincide con el nombre registrado. Intentalo nuevamente.', 'error');
         return;
       }
 
@@ -675,12 +711,12 @@
       try {
         await sendVerificationEmail(normalizedEmail, code, name);
         pendingVerification = { email: normalizedEmail, name, code };
-        showVerificationPanel(`Confirmá el acceso para ${normalizedEmail}.`, code);
+        showVerificationPanel(`Ingresá el código de 6 dígitos que te enviamos a ${normalizedEmail}.`);
         setFeedback('Se envió el código de verificación a tu Gmail. Revisá tu bandeja de entrada.', 'success');
       } catch (error) {
         pendingVerification = { email: normalizedEmail, name, code };
-        showVerificationPanel(`Confirmá el acceso para ${normalizedEmail}.`, code);
-        setFeedback('El correo se generó correctamente, pero el envío automático no pudo completarse. Usá el código que aparece en pantalla.', 'success');
+        showVerificationPanel(`Ingresá el código de 6 dígitos que te enviamos a ${normalizedEmail}.`);
+        setFeedback('El código fue preparado, pero no se pudo completar el envío automático. Intentá nuevamente.', 'error');
       }
     }
 
@@ -766,7 +802,8 @@
       `;
 
       document.getElementById('logout-btn').addEventListener('click', () => {
-        localStorage.removeItem(loyaltyKey);
+        try { localStorage.removeItem(loyaltyKey); } catch (error) {}
+        try { sessionStorage.removeItem(loyaltyKey); } catch (error) {}
         renderLoyalty();
       });
     }
