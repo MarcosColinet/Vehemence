@@ -241,6 +241,14 @@
       border-radius: 999px;
       padding: 8px 12px;
       color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .chip.active {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #1b1305;
+      border-color: transparent;
     }
 
     .products { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
@@ -448,13 +456,14 @@
         <h2>Productos destacados</h2>
         <button class="btn btn-secondary" id="toggle-catalog" type="button">Ver más</button>
       </div>
-      <div class="categories">
-        <span class="chip">Electrónica</span>
-        <span class="chip">Belleza</span>
-        <span class="chip">Hogar</span>
-        <span class="chip">Moda</span>
-        <span class="chip">Deportes</span>
-        <span class="chip">Juguetes</span>
+      <div class="categories" id="categories-bar">
+        <button type="button" class="chip active" data-category="Todos">Todos</button>
+        <button type="button" class="chip" data-category="Electrónica">Electrónica</button>
+        <button type="button" class="chip" data-category="Belleza">Belleza</button>
+        <button type="button" class="chip" data-category="Hogar">Hogar</button>
+        <button type="button" class="chip" data-category="Moda">Moda</button>
+        <button type="button" class="chip" data-category="Deportes">Deportes</button>
+        <button type="button" class="chip" data-category="Juguetes">Juguetes</button>
       </div>
 
       <div class="products" id="products-grid"></div>
@@ -589,6 +598,7 @@
 
     let showAllProducts = false;
     let pendingVerification = null;
+    let activeCategory = 'Todos';
 
     function normalizeUsersObject(users) {
       const safeUsers = users && typeof users === 'object' ? users : {};
@@ -896,7 +906,10 @@
     }
 
     function renderProducts() {
-      const visibleProducts = showAllProducts ? catalogProducts : catalogProducts.slice(0, 16);
+      const filteredProducts = activeCategory === 'Todos'
+        ? catalogProducts
+        : catalogProducts.filter(product => product.category === activeCategory);
+      const visibleProducts = showAllProducts ? filteredProducts : filteredProducts.slice(0, 4);
       productsGrid.innerHTML = visibleProducts.map(product => `
         <article class="product">
           <div class="product-image">${product.emoji}</div>
@@ -914,6 +927,7 @@
       if (catalogToggle) {
         catalogToggle.textContent = showAllProducts ? 'Ver menos' : 'Ver más';
       }
+      catalogToggle.style.display = filteredProducts.length > 4 ? 'inline-flex' : 'none';
     }
 
     function renderLoyalty() {
@@ -953,6 +967,15 @@
       const name = document.getElementById('loyalty-name').value.trim();
       const email = document.getElementById('loyalty-email').value.trim();
       await verifyEmailAndContinue(name, email);
+    });
+
+    document.querySelectorAll('#categories-bar .chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        activeCategory = chip.dataset.category || 'Todos';
+        showAllProducts = false;
+        document.querySelectorAll('#categories-bar .chip').forEach((item) => item.classList.toggle('active', item === chip));
+        renderProducts();
+      });
     });
 
     accountPill?.addEventListener('click', (event) => {
