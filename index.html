@@ -6,22 +6,24 @@
   <title>Vehemence | Tienda online Uruguay</title>
   <style>
     :root {
-      --bg: #060606;
-      --panel: #111111;
-      --panel-2: #171717;
-      --text: #f7f3eb;
-      --muted: #ad9e84;
-      --accent: #f2c36b;
-      --accent-2: #c8922a;
+      --bg: #f5f7f8;
+      --panel: #ffffff;
+      --panel-2: #f0f4f6;
+      --text: #14202b;
+      --muted: #5f6d79;
+      --accent: #2f6f9b;
+      --accent-2: #3d8f7b;
+      --action: #22c55e;
+      --action-2: #16a34a;
       --success: #25b36b;
-      --border: rgba(242, 195, 107, 0.18);
+      --border: rgba(47, 111, 155, 0.16);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #060606, #141414 55%, #20180d);
+      background: linear-gradient(135deg, #f8fafb, #eef3f5 55%, #e3ebef);
       color: var(--text);
       line-height: 1.6;
       min-height: 100vh;
@@ -36,7 +38,7 @@
       border-bottom: 1px solid var(--border);
       position: sticky;
       top: 0;
-      background: rgba(6, 6, 6, 0.92);
+      background: rgba(255, 255, 255, 0.94);
       backdrop-filter: blur(10px);
       z-index: 10;
     }
@@ -86,12 +88,13 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      background: rgba(255,255,255,0.05);
+      background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 999px;
       padding: 10px 12px;
       max-width: 560px;
       margin-bottom: 18px;
+      box-shadow: 0 8px 20px rgba(20, 32, 43, 0.05);
     }
 
     .searchbox input {
@@ -117,22 +120,22 @@
     }
 
     .searchbox button:hover, .btn:hover { transform: translateY(-2px); }
-    .searchbox button, .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #1b1305; }
+    .searchbox button, .btn-primary { background: linear-gradient(135deg, var(--action), var(--action-2)); color: #ffffff; }
 
     .actions { display: flex; gap: 12px; flex-wrap: wrap; }
 
     .btn-secondary {
-      background: rgba(255,255,255,0.04);
+      background: var(--panel-2);
       color: var(--text);
       border: 1px solid var(--border);
     }
 
     .panel {
-      background: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+      background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 24px;
       padding: 22px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 20px 50px rgba(20, 32, 43, 0.08);
     }
 
     .panel h3 {
@@ -143,8 +146,8 @@
 
     .badges { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
     .badge {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
+      background: var(--panel-2);
+      border: 1px solid var(--border);
       border-radius: 999px;
       padding: 7px 12px;
       font-size: 0.9rem;
@@ -152,7 +155,7 @@
     }
 
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
-    .stat { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 12px; text-align: center; }
+    .stat { background: var(--panel-2); border: 1px solid var(--border); border-radius: 16px; padding: 12px; text-align: center; }
     .stat strong { display: block; font-size: 1.15rem; color: var(--accent); }
 
     section { padding: 10px 0 34px; }
@@ -163,7 +166,7 @@
 
     .categories { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
     .chip {
-      background: rgba(255,255,255,0.04);
+      background: var(--panel-2);
       border: 1px solid var(--border);
       border-radius: 999px;
       padding: 8px 12px;
@@ -174,7 +177,7 @@
 
     .chip.active {
       background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      color: #1b1305;
+      color: #ffffff;
       border-color: transparent;
     }
 
@@ -188,7 +191,7 @@
 
     .product-image {
       height: 140px;
-      background: linear-gradient(135deg, rgba(242,195,107,0.28), rgba(255,255,255,0.02));
+      background: linear-gradient(135deg, rgba(47,111,155,0.14), rgba(61,143,123,0.08));
       display: flex; align-items: center; justify-content: center;
       font-size: 2.2rem;
     }
@@ -201,15 +204,15 @@
     .tag { color: var(--success); font-size: 0.84rem; font-weight: 600; }
 
     .benefits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 8px; }
-    .benefit { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+    .benefit { background: var(--panel-2); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
     .benefit h3 { color: var(--accent); margin-bottom: 7px; }
 
     .contact-card, .loyalty-card {
-      background: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+      background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 24px;
       padding: 22px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 20px 50px rgba(20, 32, 43, 0.06);
     }
 
     .contact-grid, .loyalty-grid {
@@ -228,7 +231,7 @@
       border: 1px solid var(--border);
       border-radius: 999px;
       padding: 10px 12px;
-      background: rgba(255,255,255,0.04);
+      background: var(--panel-2);
       color: var(--text);
       outline: none;
     }
@@ -334,7 +337,7 @@
         <p class="lead">Vehemence ofrece una experiencia de compra más segura y transparente que las compras desordenadas en marketplaces, con productos de calidad y un entorno pensado para que cada cliente encuentre exactamente lo que busca.</p>
 
         <div class="searchbox">
-          <input type="text" placeholder="Buscar productos, marcas o categorías" />
+          <input type="text" placeholder="Buscá productos por nombre o palabras similares" />
           <button type="button">Buscar</button>
         </div>
 
@@ -459,15 +462,39 @@
       const normalizedSearch = activeSearch.trim().toLowerCase();
       const filteredProducts = catalogProducts.filter((product) => {
         const matchesCategory = activeCategory === 'Todos' || product.category === activeCategory;
-        const searchableText = [product.name, product.description, product.category, product.name.toLowerCase().replace(/[^a-z0-9]/g, ''), product.name.toLowerCase().split(' ').join('')]
-          .join(' ')
-          .toLowerCase();
+        if (!normalizedSearch) return matchesCategory;
+
+        const productText = [
+          product.name,
+          product.description,
+          product.category,
+          product.name.toLowerCase().replace(/[^a-z0-9]/g, ''),
+          product.name.toLowerCase().split(' ').join('')
+        ].join(' ').toLowerCase();
+
         const searchTerms = normalizedSearch
           .split(/\s+/)
           .filter(Boolean)
           .map(term => term.replace(/[^a-z0-9]/g, ''))
           .filter(Boolean);
-        const matchesSearch = !normalizedSearch || searchTerms.every(term => searchableText.includes(term));
+
+        const normalizedProductText = productText.replace(/[^a-z0-9]/g, '');
+        const isExactOrPartialMatch = searchTerms.every(term => normalizedProductText.includes(term));
+
+        const similarityScore = searchTerms.reduce((score, term) => {
+          if (normalizedProductText.includes(term)) return score + 3;
+          const productWords = productText.split(/\s+/).filter(Boolean);
+          const wordMatch = productWords.some(word => word.includes(term) || term.includes(word));
+          return score + (wordMatch ? 2 : 0);
+        }, 0);
+
+        const hasStemMatch = searchTerms.some(term => {
+          const prefix = term.slice(0, 3);
+          const productWords = productText.split(/\s+/).filter(Boolean);
+          return productWords.some(word => word.startsWith(prefix) || prefix.startsWith(word.slice(0, 3)));
+        });
+
+        const matchesSearch = isExactOrPartialMatch || similarityScore >= 2 || hasStemMatch;
         return matchesCategory && matchesSearch;
       });
       const visibleProducts = showAllProducts ? filteredProducts : filteredProducts.slice(0, 4);
