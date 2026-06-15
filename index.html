@@ -237,6 +237,49 @@
       outline: none;
     }
 
+    .loyalty-feedback {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      display: none;
+    }
+
+    .loyalty-feedback.error {
+      display: block;
+      background: rgba(255, 77, 77, 0.12);
+      border: 1px solid rgba(255, 77, 77, 0.2);
+      color: #ffb3b3;
+    }
+
+    .loyalty-feedback.success {
+      display: block;
+      background: rgba(37, 179, 107, 0.14);
+      border: 1px solid rgba(37, 179, 107, 0.24);
+      color: #a8f0c8;
+    }
+
+    .loyalty-verification {
+      display: none;
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+    }
+
+    .loyalty-verification.visible {
+      display: block;
+    }
+
+    .verif-code {
+      letter-spacing: 0.24em;
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--accent);
+      margin: 8px 0;
+    }
+
     .loyalty-points {
       font-size: 1.8rem;
       color: var(--accent);
@@ -399,9 +442,19 @@
           <p style="margin-top: 8px; color: var(--muted);">Registrate para acceder a tu historial de compras, ver tu saldo de puntos y descubrir cómo canjear beneficios exclusivos.</p>
           <form id="loyalty-form" class="loyalty-form">
             <input type="text" id="loyalty-name" placeholder="Tu nombre" required />
-            <input type="email" id="loyalty-email" placeholder="Tu email" required />
+            <input type="email" id="loyalty-email" placeholder="Tu Gmail" required />
             <button type="submit" class="btn btn-primary">Ingresar</button>
           </form>
+          <div id="loyalty-verification" class="loyalty-verification">
+            <p id="verification-copy">Te enviaremos un código de 6 dígitos para confirmar tu Gmail.</p>
+            <div class="verif-code" id="verification-code-display">000000</div>
+            <input type="text" id="verification-code" placeholder="Ingresa el código de 6 dígitos" maxlength="6" inputmode="numeric" />
+            <div class="actions" style="margin-top: 8px;">
+              <button type="button" id="verify-code-btn" class="btn btn-primary">Confirmar código</button>
+              <button type="button" id="cancel-verification-btn" class="btn btn-secondary">Cancelar</button>
+            </div>
+          </div>
+          <p id="loyalty-feedback" class="loyalty-feedback" aria-live="polite"></p>
           <p style="margin-top: 12px; color: var(--muted);">Por cada $100 que gastes, acumularás 10 puntos. Cada punto equivale a $1 uruguayo y podrás canjearlos por productos o beneficios futuros.</p>
         </div>
         <div class="loyalty-card">
@@ -460,6 +513,7 @@
     ];
 
     let showAllProducts = false;
+    let pendingVerification = null;
 
     function getUsers() {
       try {
@@ -482,10 +536,89 @@
     }
 
     function saveUser(user) {
-      localStorage.setItem(loyaltyKey, JSON.stringify(user));
+      const normalizedEmail = (user.email || '').toLowerCase();
+      const normalizedUser = { ...user, email: normalizedEmail };
+      localStorage.setItem(loyaltyKey, JSON.stringify(normalizedUser));
       const users = getUsers();
-      users[user.email] = user;
+      users[normalizedEmail] = normalizedUser;
       saveUsers(users);
+      return normalizedUser;
+    }
+
+    function setFeedback(message, type = 'info') {
+      const feedback = document.getElementById('loyalty-feedback');
+      if (!feedback) return;
+      feedback.textContent = message;
+      feedback.className = `loyalty-feedback ${type}`;
+    }
+
+    function clearFeedback() {
+      const feedback = document.getElementById('loyalty-feedback');
+      if (feedback) {
+        feedback.textContent = '';
+        feedback.className = 'loyalty-feedback';
+      }
+    }
+
+    function showVerificationPanel(message, code) {
+      const panel = document.getElementById('loyalty-verification');
+      const copy = document.getElementById('verification-copy');
+      const display = document.getElementById('verification-code-display');
+      if (!panel || !copy || !display) return;
+      copy.textContent = message;
+      display.textContent = code;
+      panel.classList.add('visible');
+      document.getElementById('verification-code')?.focus();
+    }
+
+    function hideVerificationPanel() {
+      const panel = document.getElementById('loyalty-verification');
+      if (panel) {
+        panel.classList.remove('visible');
+      }
+      const codeInput = document.getElementById('verification-code');
+      if (codeInput) {
+        codeInput.value = '';
+      }
+    }
+
+    function isValidGmail(email) {
+      return /^[^\s@]+@gmail\.com$/i.test(email);
+    }
+
+    function generateVerificationCode() {
+      return String(Math.floor(100000 + Math.random() * 900000));
+    }
+
+    function verifyEmailAndContinue(name, email) {
+      const normalizedEmail = (email || '').trim().toLowerCase();
+      if (!normalizedEmail || !name) {
+        setFeedback('Completá tu nombre y un Gmail para continuar.', 'error');
+        return;
+      }
+
+      if (!isValidGmail(normalizedEmail)) {
+        setFeedback('Ese correo no existe. Debes usar un Gmail real válido.', 'error');
+        return;
+      }
+
+      const users = getUsers();
+      const existingUser = users[normalizedEmail];
+
+      if (existingUser && existingUser.name && existingUser.name.toLowerCase() !== name.toLowerCase()) {
+        setFeedback(`Ese correo ya está asociado a ${existingUser.name}. Ingresá el nombre correcto para entrar.`, 'error');
+        return;
+      }
+
+      const code = generateVerificationCode();
+      pendingVerification = { email: normalizedEmail, name, code, action: existingUser ? 'login' : 'register' };
+      showVerificationPanel(
+        existingUser
+          ? `Confirmá el acceso para ${normalizedEmail}.`
+          : `Te enviamos un código de 6 dígitos a ${normalizedEmail} para verificar tu Gmail.`,
+        code
+      );
+      setFeedback(existingUser ? 'Se solicitó la verificación para entrar con ese correo.' : 'Verificá tu Gmail con el código que aparece aquí.', 'success');
     }
 
     function updateAccountPill(user) {
@@ -578,19 +711,40 @@
       event.preventDefault();
       const name = document.getElementById('loyalty-name').value.trim();
       const email = document.getElementById('loyalty-email').value.trim();
+      verifyEmailAndContinue(name, email);
+    });
 
-      if (!name || !email) return;
+    document.getElementById('verify-code-btn')?.addEventListener('click', () => {
+      const code = document.getElementById('verification-code').value.trim();
+      if (!pendingVerification) return;
 
-      const existingUser = getUsers()[email] || {};
+      if (code !== pendingVerification.code) {
+        setFeedback('El código ingresado no es correcto. Intentá nuevamente.', 'error');
+        return;
+      }
+
+      const users = getUsers();
+      const existingUser = users[pendingVerification.email] || null;
       const user = {
-        name,
-        email,
-        points: existingUser.points || 0,
-        history: existingUser.history || []
+        name: pendingVerification.name,
+        email: pendingVerification.email,
+        points: existingUser?.points || 0,
+        history: existingUser?.history || []
       };
+
       saveUser(user);
-      event.target.reset();
+      hideVerificationPanel();
+      clearFeedback();
+      document.getElementById('loyalty-form')?.reset();
       renderLoyalty();
+      setFeedback(existingUser ? 'Accediste correctamente a tu cuenta.' : 'Tu cuenta de fidelidad quedó creada correctamente.', 'success');
+      pendingVerification = null;
+    });
+
+    document.getElementById('cancel-verification-btn')?.addEventListener('click', () => {
+      pendingVerification = null;
+      hideVerificationPanel();
+      clearFeedback();
     });
 
     document.getElementById('moderator-form')?.addEventListener('submit', (event) => {
