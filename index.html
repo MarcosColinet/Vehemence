@@ -621,7 +621,30 @@
       return String(Math.floor(100000 + Math.random() * 900000));
     }
 
-    function verifyEmailAndContinue(name, email) {
+    async function sendVerificationEmail(email, code, name) {
+      const endpoint = `https://formsubmit.co/ajax/${encodeURIComponent(email)}`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          name: name || 'Cliente Vehemence',
+          email,
+          subject: 'Código de verificación Vehemence',
+          message: `Hola ${name || 'cliente'}:\n\nTu código de verificación para Vehemence es ${code}.\n\nIngresalo en la página para continuar.`
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`No se pudo enviar el correo (${response.status})`);
+      }
+
+      return true;
+    }
+
+    async function verifyEmailAndContinue(name, email) {
       const normalizedEmail = (email || '').trim().toLowerCase();
       if (!normalizedEmail || !name) {
         setFeedback('Completá tu nombre y un Gmail para continuar.', 'error');
@@ -647,9 +670,18 @@
       }
 
       const code = generateVerificationCode();
-      pendingVerification = { email: normalizedEmail, name, code };
-      showVerificationPanel(`Confirmá el acceso para ${normalizedEmail}.`, code);
-      setFeedback('Se solicitó la verificación para entrar con ese correo.', 'success');
+      setFeedback('Enviando el código a tu Gmail...', 'success');
+
+      try {
+        await sendVerificationEmail(normalizedEmail, code, name);
+        pendingVerification = { email: normalizedEmail, name, code };
+        showVerificationPanel(`Confirmá el acceso para ${normalizedEmail}.`, code);
+        setFeedback('Se envió el código de verificación a tu Gmail. Revisá tu bandeja de entrada.', 'success');
+      } catch (error) {
+        pendingVerification = { email: normalizedEmail, name, code };
+        showVerificationPanel(`Confirmá el acceso para ${normalizedEmail}.`, code);
+        setFeedback('El correo se generó correctamente, pero el envío automático no pudo completarse. Usá el código que aparece en pantalla.', 'success');
+      }
     }
 
     function updateAccountPill(user) {
@@ -739,11 +771,11 @@
       });
     }
 
-    document.getElementById('loyalty-form')?.addEventListener('submit', (event) => {
+    document.getElementById('loyalty-form')?.addEventListener('submit', async (event) => {
       event.preventDefault();
       const name = document.getElementById('loyalty-name').value.trim();
       const email = document.getElementById('loyalty-email').value.trim();
-      verifyEmailAndContinue(name, email);
+      await verifyEmailAndContinue(name, email);
     });
 
     document.getElementById('verify-code-btn')?.addEventListener('click', () => {
